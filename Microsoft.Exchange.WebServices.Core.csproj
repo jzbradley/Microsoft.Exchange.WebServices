@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <Authors>Microsoft Exchange Managed API</Authors>
+    <PackageId>Microsoft.Exchange.WebServices.Core</PackageId>
+    <Version>2.2.2</Version>
+    <Company>Microsoft Corporation</Company>
+    <Product>Microsoft Exchange Managed API</Product>
+    <Description>.NET Standard/Core port of Microsoft Exchange Web Services (EWS Managed API)</Description>
+    <Copyright>© Microsoft Corporation.  All rights reserved.</Copyright>
+    <PackageProjectUrl>https://github.com/jzbradley/Microsoft.Exchange.WebServices</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/jzbradley/Microsoft.Exchange.WebServices</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <AssemblyVersion>2.2.2</AssemblyVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.DirectoryServices" Version="6.0.0" />
+    <PackageReference Include="System.Net.Requests" Version="4.3.0" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="6.0.0" />
+  </ItemGroup>
+
+</Project>
