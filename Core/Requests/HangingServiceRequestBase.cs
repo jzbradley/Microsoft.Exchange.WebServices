@@ -23,6 +23,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+using Microsoft.Exchange.WebServices.Core;
+
 namespace Microsoft.Exchange.WebServices.Data
 {
     using System;
@@ -180,55 +182,22 @@ namespace Microsoft.Exchange.WebServices.Data
         {
             try
             {
-                Guid traceId = Guid.Empty;
-                HangingTraceStream tracingStream = null;
-                MemoryStream responseCopy = null;
 
                 try
                 {
                     bool traceEwsResponse = this.Service.IsTraceEnabledFor(TraceFlags.EwsResponse);
 
-                    using (Stream responseStream = this.response.GetResponseStream())
+
+
+                    if (traceEwsResponse)
                     {
-                        responseStream.ReadTimeout = 2 * this.heartbeatFrequencyMilliseconds;
-                        tracingStream = new HangingTraceStream(responseStream, this.Service);
-
-                        // EwsServiceMultiResponseXmlReader.Create causes a read.
-                        if (traceEwsResponse)
-                        {
-                            responseCopy = new MemoryStream();
-                            tracingStream.SetResponseCopy(responseCopy);
-                        }
-
-                        EwsServiceMultiResponseXmlReader ewsXmlReader = EwsServiceMultiResponseXmlReader.Create(tracingStream, this.Service);
-
-                        while (this.IsConnected)
-                        {
-                            object responseObject = null;
-                            if (traceEwsResponse)
-                            {
-                                try
-                                {
-                                    responseObject = this.ReadResponse(ewsXmlReader, this.response.Headers);
-                                }
-                                finally
-                                {
-                                    this.Service.TraceXml(TraceFlags.EwsResponse, responseCopy);
-                                }
-
-                                // reset the stream collector.
-                                responseCopy.Close();
-                                responseCopy = new MemoryStream();
-                                tracingStream.SetResponseCopy(responseCopy);
-                            }
-                            else
-                            {
-                                responseObject = this.ReadResponse(ewsXmlReader, this.response.Headers);
-                            }
-
-                            this.responseHandler(responseObject);
-                        }
+                        TraceParseResponses();
                     }
+                    else
+                    {
+                        FastParseResponses();
+                    }
+
                 }
                 catch (TimeoutException ex)
                 {
@@ -273,18 +242,63 @@ namespace Microsoft.Exchange.WebServices.Data
                     this.Disconnect(HangingRequestDisconnectReason.UserInitiated, ex);
                     return;
                 }
-                finally
-                {
-                    if (responseCopy != null)
-                    {
-                        responseCopy.Dispose();
-                        responseCopy = null;
-                    }
-                }
             }
             catch (ServiceLocalException exception)
             {
                 this.Disconnect(HangingRequestDisconnectReason.Exception, exception);
+            }
+        }
+
+        private void FastParseResponses()
+        {
+            try
+            {
+                using (var responseStream = this.response.GetResponseStream())
+                {
+                    responseStream.ReadTimeout = 2 * this.heartbeatFrequencyMilliseconds;
+                    var tracingStream = new HangingTraceStream(responseStream, this.Service);
+                    // EwsServiceMultiResponseXmlReader.Create causes a read.
+                    var ewsXmlReader = EwsServiceMultiResponseXmlReader.Create(tracingStream, this.Service);
+                    while (this.IsConnected)
+                    {
+                        var responseObject = this.ReadResponse(ewsXmlReader, this.response.Headers);
+                        this.responseHandler(responseObject);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
+        }
+
+        private void TraceParseResponses()
+        {
+            using (var responseStream = this.response.GetResponseStream())
+            {
+                responseStream.ReadTimeout = 2 * this.heartbeatFrequencyMilliseconds;
+                var tracingStream = new HangingTraceStream(responseStream, this.Service);
+                // EwsServiceMultiResponseXmlReader.Create causes a read.
+                var ewsXmlReader = EwsServiceMultiResponseXmlReader.Create(tracingStream, this.Service);
+                do
+                {
+                    // reset the stream collector.
+                    using (var responseCopy = new MemoryStream())
+                    {
+                        tracingStream.SetResponseCopy(responseCopy);
+                        try
+                        {
+                            var responseObject = this.ReadResponse(ewsXmlReader, this.response.Headers);
+                            this.responseHandler(responseObject);
+                        }
+                        finally
+                        {
+                            this.Service.TraceXml(TraceFlags.EwsResponse, responseCopy);
+                        }
+                    }
+
+                } while (this.IsConnected);
             }
         }
 
